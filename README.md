@@ -1,13 +1,26 @@
 # 技能语音提醒
 
-给 Windows 游戏用的技能计时器。按下绑定键后开始计时，到点用本机中文语音念出技能名。初始示例是 F1「护盾」，持续 60 秒，提前 5 秒，在按键后的第 55 秒播报。
+在 Windows 上玩游戏时，按下技能快捷键，工具就会在后台计时，到点用中文念出技能名。例如「护盾」持续 60 秒，设为提前 5 秒提醒，施放后第 55 秒就会听到“护盾”。中途补放会从最近一次按键重新计时。
 
-## 在 Windows 上使用
+[下载 Windows 便携版](https://github.com/ComingPeopleHW/skill-voice-timer/releases/latest/download/SkillVoiceTimer-Windows.zip)。解压后双击 `SkillVoiceTimer.exe`。适用于装有 .NET Framework 4.8 或更高版本的 Windows 10 / 11。
 
-1. 解压 `SkillVoiceTimer-Windows.zip` 到任意文件夹，双击 `SkillVoiceTimer.exe`。适用于装有 .NET Framework 4.8 或更高版本的 Windows 10 / 11。
-2. 双击「护盾」修改示例，或点击「添加技能」。填写技能名，点击「技能快捷键」右侧的按钮，直接按下游戏中使用的单键或组合键，如 Q、Ctrl + Q、Shift + 1。按 Esc 可取消这次录入。填好持续秒数和提前秒数，再点「保存」。提前量可以为 0。
-3. 选中技能，点击「试听」确认中文语音和输出设备。程序优先使用系统已安装的简体中文桌面语音。如果找不到可用语音，可在 Windows 语言或语音设置中为中文安装“文本到语音”功能，然后重开工具并试听。
-4. 点击「开始监听」，切回游戏。可将窗口最小化到任务栏通知区域，双击托盘图标返回。暂停监听会清空倒计时，关闭主窗口会退出。
+## 把「护盾」绑到 Ctrl + Q
+
+**1. 打开技能列表。** 每行显示一个技能的快捷键、持续时间、提前量和计时状态。双击「护盾」可以修改默认的 `F1` 绑定，也可以点「添加技能」配置其他技能。
+
+![主窗口列出护盾和陷阱，两行分别显示绑定键与提醒时间](https://raw.githubusercontent.com/ComingPeopleHW/skill-voice-timer/main/docs/images/main.png)
+
+**2. 直接按下游戏里的快捷键。** 在编辑窗口点击「技能快捷键」右侧的按钮。出现「请按下快捷键…」后，按住 `Ctrl` 再按 `Q`。也可以直接按单键，例如 `F1`。按 `Esc` 可取消这次录入。
+
+![快捷键按钮显示“请按下快捷键…”，正在等待录入](https://raw.githubusercontent.com/ComingPeopleHW/skill-voice-timer/main/docs/images/recording.png)
+
+**3. 确认提醒时间并保存。** 按钮会显示 `Ctrl + Q`。将持续时间填为 60 秒、提前提醒填为 5 秒，窗口会提示「按键后第 55 秒播报“护盾”」。希望技能结束时再提醒，可以把提前量设为 0。
+
+![编辑窗口已录入 Ctrl + Q，显示持续 60 秒、提前 5 秒，第 55 秒播报护盾](https://raw.githubusercontent.com/ComingPeopleHW/skill-voice-timer/main/docs/images/recorded.png)
+
+点「保存」回到主窗口，选中「护盾」点「试听」，再点「开始监听」并切回游戏。窗口最小化到托盘后仍会监听，双击托盘图标可返回。暂停监听会清空倒计时，关闭主窗口会退出。
+
+如果试听时找不到可用语音，请在 Windows 语言或语音设置中为中文安装“文本到语音”功能，再重开工具试听。程序优先使用本机的简体中文桌面语音。
 
 ## 计时规则
 
