@@ -9,24 +9,25 @@ namespace SkillVoiceTimer
     internal sealed class SkillEditor : Form
     {
         private readonly TextBox nameBox = new TextBox { MaxLength = 40 };
-        private readonly ComboBox keyBox = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
+        private readonly ShortcutButton keyButton;
         private readonly NumericUpDown duration = new NumericUpDown { Minimum = 1, Maximum = 86400 };
         private readonly NumericUpDown lead = new NumericUpDown { Minimum = 0, Maximum = 86399 };
         private readonly Label hint = new Label { AutoSize = true };
         private readonly Button save = new Button { Text = "保存", AutoSize = true };
-        private readonly HashSet<Keys> used;
         public Skill Result { get; private set; }
 
         public SkillEditor(List<Skill> skills, Skill original)
         {
-            used = new HashSet<Keys>(skills.Where(s => s != original).Select(s => s.Key));
+            var others = skills.Where(s => s != original).ToDictionary(s => s.Binding, s => s.Name);
+            keyButton = new ShortcutButton(original == null ? Keys.None : original.Binding, others);
+            Deactivate += (s, e) => keyButton.EndCapture();
             Text = original == null ? "添加技能" : "编辑技能";
             AutoScaleMode = AutoScaleMode.Dpi;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             StartPosition = FormStartPosition.CenterParent;
             MinimizeBox = MaximizeBox = false;
             ShowInTaskbar = false;
-            ClientSize = new Size(408, 300);
+            ClientSize = new Size(452, 308);
             var grid = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(18), ColumnCount = 2, RowCount = 6 };
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -35,7 +36,7 @@ namespace SkillVoiceTimer
             grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             Controls.Add(grid);
             AddField(grid, 0, "技能名", nameBox);
-            AddField(grid, 1, "技能键", keyBox);
+            AddField(grid, 1, "技能快捷键", keyButton);
             AddField(grid, 2, "持续时间（秒）", duration);
             AddField(grid, 3, "提前提醒（秒）", lead);
             grid.Controls.Add(hint, 0, 4);
@@ -51,21 +52,17 @@ namespace SkillVoiceTimer
             CancelButton = cancel;
             AcceptButton = save;
 
-            keyBox.Format += (s, e) => { e.Value = KeyChoices.Label((Keys)e.ListItem); };
-            keyBox.FormattingEnabled = true;
-            keyBox.Items.AddRange(KeyChoices.All.Cast<object>().ToArray());
-            var firstFree = KeyChoices.All.FirstOrDefault(k => !used.Contains(k));
-            keyBox.SelectedItem = original == null ? firstFree : original.Key;
             nameBox.Text = original == null ? "" : original.Name;
             duration.Value = original == null ? 60 : original.Duration;
             lead.Value = original == null ? 5 : original.Lead;
             nameBox.TextChanged += (s, e) => RefreshHint();
-            keyBox.SelectedIndexChanged += (s, e) => RefreshHint();
+            keyButton.CaptureChanged += (s, e) => RefreshHint();
             duration.ValueChanged += (s, e) => RefreshHint();
             lead.ValueChanged += (s, e) => RefreshHint();
             save.Click += (s, e) =>
             {
-                Result = new Skill { Name = nameBox.Text.Trim(), Key = (Keys)keyBox.SelectedItem,
+                Result = new Skill { Name = nameBox.Text.Trim(), Key = keyButton.Binding & Keys.KeyCode,
+                    Modifiers = keyButton.Binding & Keys.Modifiers,
                     Duration = (int)duration.Value, Lead = (int)lead.Value };
                 DialogResult = DialogResult.OK;
             };
@@ -83,8 +80,9 @@ namespace SkillVoiceTimer
         private void RefreshHint()
         {
             save.Enabled = false;
-            if (string.IsNullOrWhiteSpace(nameBox.Text)) hint.Text = "输入希望听到的技能名。";
-            else if (keyBox.SelectedItem == null || used.Contains((Keys)keyBox.SelectedItem)) hint.Text = "请选择一个尚未绑定的按键。";
+            if (keyButton.Recording) hint.Text = keyButton.Hint;
+            else if (string.IsNullOrWhiteSpace(nameBox.Text)) hint.Text = "输入希望听到的技能名。";
+            else if (keyButton.Binding == Keys.None) hint.Text = "点击“录入快捷键”，按下游戏中使用的按键。";
             else if (lead.Value >= duration.Value) hint.Text = "提前量必须小于持续时间。";
             else
             {

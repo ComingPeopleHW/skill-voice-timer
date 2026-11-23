@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using SkillVoiceTimer;
 
-internal static class Checks
+internal static partial class Checks
 {
     private static int checks;
     private static void Check(bool condition, string name)
@@ -76,7 +76,7 @@ internal static class Checks
             store.Save(new List<Skill> { a, b });
             var loaded = store.Load();
             Check(loaded.Count == 2 && loaded[1].Name == b.Name && loaded[1].DelaySeconds == 110 &&
-                loaded[1].Key == b.Key, "Chinese profile roundtrip");
+                loaded[1].Key == b.Key && loaded[1].Modifiers == Keys.None, "Chinese profile roundtrip");
             bool rejected = false;
             try { store.Save(new List<Skill> { a, a }); }
             catch (InvalidDataException) { rejected = true; }
@@ -90,6 +90,7 @@ internal static class Checks
             Check(instant.DelaySeconds == 1, "zero lead allowed");
             store.Save(new List<Skill>());
             Check(store.Load().Count == 0, "empty profile persists");
+            CheckShortcuts(store);
             Check(Marshal.SizeOf(typeof(KeyboardInput.Header)) == (IntPtr.Size == 8 ? 24 : 16) &&
                 Marshal.SizeOf(typeof(KeyboardInput.KeyboardPacket)) == (IntPtr.Size == 8 ? 40 : 32), "Win32 keyboard ABI");
             using (var window = new MainWindow(store, loaded))
@@ -99,13 +100,7 @@ internal static class Checks
                 KeyboardInput.Register(window.Handle, true);
                 KeyboardInput.Register(window.Handle, false);
                 Check(window.Visible, "Windows main window and background input registration");
-                using (var editor = new SkillEditor(loaded, a))
-                {
-                    editor.Show(window);
-                    Application.DoEvents();
-                    Check(editor.Visible, "skill editor opens");
-                    editor.Close();
-                }
+                CheckEditor(window, loaded);
                 window.Close();
             }
         }

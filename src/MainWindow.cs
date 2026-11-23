@@ -59,7 +59,7 @@ namespace SkillVoiceTimer
             bar.Controls.AddRange(new Control[] { listen, add, edit, remove, preview });
             layout.Controls.Add(bar, 0, 2);
             string[] columns = { "技能名", "技能键", "持续时间", "提前提醒", "计时状态" };
-            int[] widths = { 180, 95, 90, 90, 145 };
+            int[] widths = { 155, 195, 90, 90, 145 };
             for (int i = 0; i < columns.Length; i++) list.Columns.Add(columns[i], widths[i]);
             list.AccessibleName = "技能列表";
             layout.Controls.Add(list, 0, 3);
@@ -107,8 +107,8 @@ namespace SkillVoiceTimer
             list.Items.Clear();
             foreach (var skill in skills)
             {
-                var item = new ListViewItem(new[] { skill.Name, KeyChoices.Label(skill.Key),
-                    skill.Duration + " 秒", skill.Lead + " 秒", timers.Status(skill.Key, clock.ElapsedMilliseconds) });
+                var item = new ListViewItem(new[] { skill.Name, KeyChoices.Label(skill.Binding),
+                    skill.Duration + " 秒", skill.Lead + " 秒", timers.Status(skill.Binding, clock.ElapsedMilliseconds) });
                 item.Tag = skill;
                 list.Items.Add(item);
                 item.Selected = skill == selected;
@@ -208,7 +208,12 @@ namespace SkillVoiceTimer
             try { KeyboardInput.Register(Handle, !listening); }
             catch (Exception ex) { Alert("键盘监听设置失败。", ex); return; }
             listening = !listening;
-            if (!listening)
+            if (listening)
+            {
+                foreach (var key in KeyChoices.SidedModifiers)
+                    if (KeyboardInput.IsDown(key)) timers.KeyEvent(key, false, false, clock.ElapsedMilliseconds);
+            }
+            else
             {
                 timers.Clear();
                 if (voice != null) voice.Cancel();
@@ -251,7 +256,7 @@ namespace SkillVoiceTimer
             {
                 foreach (ListViewItem item in list.Items)
                 {
-                    string current = timers.Status(((Skill)item.Tag).Key, now);
+                    string current = timers.Status(((Skill)item.Tag).Binding, now);
                     if (item.SubItems[4].Text != current) item.SubItems[4].Text = current;
                 }
                 UpdateActions();

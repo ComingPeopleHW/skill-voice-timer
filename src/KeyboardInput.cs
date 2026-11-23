@@ -34,6 +34,24 @@ namespace SkillVoiceTimer
         private static extern uint GetRawInputData(IntPtr input, uint command, out KeyboardPacket packet,
             ref uint size, uint headerSize);
 
+        [DllImport("user32.dll")]
+        private static extern short GetAsyncKeyState(int key);
+
+        public static bool IsDown(Keys key) { return GetAsyncKeyState((int)key) < 0; }
+
+        internal static Keys PhysicalKey(KeyboardPacket packet)
+        {
+            var key = (Keys)packet.VirtualKey;
+            bool extended = (packet.Flags & 2) != 0;
+            switch (key)
+            {
+                case Keys.ShiftKey: return packet.MakeCode == 0x36 ? Keys.RShiftKey : Keys.LShiftKey;
+                case Keys.ControlKey: return extended ? Keys.RControlKey : Keys.LControlKey;
+                case Keys.Menu: return extended ? Keys.RMenu : Keys.LMenu;
+                default: return key;
+            }
+        }
+
         private static readonly uint HeaderSize = (uint)Marshal.SizeOf(typeof(Header));
         private static readonly uint PacketSize = (uint)Marshal.SizeOf(typeof(KeyboardPacket));
 
@@ -54,7 +72,7 @@ namespace SkillVoiceTimer
             released = false;
             if (bytes != PacketSize || packet.Header.Type != 1 || packet.VirtualKey >= 255 ||
                 packet.MakeCode == 255) return false;
-            key = (Keys)packet.VirtualKey;
+            key = PhysicalKey(packet);
             released = (packet.Flags & 1) != 0;
             return true;
         }
