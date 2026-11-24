@@ -101,6 +101,7 @@ internal static partial class Checks
                 KeyboardInput.Register(window.Handle, false);
                 Check(window.Visible, "Windows main window and background input registration");
                 CheckEditor(window, loaded);
+                CheckExpandedKeys(temp, window);
                 window.Close();
             }
         }

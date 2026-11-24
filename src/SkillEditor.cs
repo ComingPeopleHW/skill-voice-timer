@@ -62,7 +62,8 @@ namespace SkillVoiceTimer
             save.Click += (s, e) =>
             {
                 Result = new Skill { Name = nameBox.Text.Trim(), Key = keyButton.Binding & Keys.KeyCode,
-                    Modifiers = keyButton.Binding & Keys.Modifiers,
+                    Modifiers = keyButton.Binding & KeyChoices.StandardModifiers,
+                    WithWindowsKey = (keyButton.Binding & KeyChoices.Win) != 0,
                     Duration = (int)duration.Value, Lead = (int)lead.Value };
                 DialogResult = DialogResult.OK;
             };

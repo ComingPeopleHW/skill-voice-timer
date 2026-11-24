@@ -39,6 +39,14 @@ namespace SkillVoiceTimer
 
         public static bool IsDown(Keys key) { return GetAsyncKeyState((int)key) < 0; }
 
+        [DllImport("user32.dll")]
+        private static extern short GetKeyState(int key);
+
+        public static Keys WindowModifier()
+        {
+            return GetKeyState((int)Keys.LWin) < 0 || GetKeyState((int)Keys.RWin) < 0 ? KeyChoices.Win : Keys.None;
+        }
+
         internal static Keys PhysicalKey(KeyboardPacket packet)
         {
             var key = (Keys)packet.VirtualKey;

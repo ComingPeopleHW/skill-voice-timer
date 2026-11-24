@@ -20,6 +20,7 @@ namespace SkillVoiceTimer
         private readonly HashSet<Keys> modifierKeysDown = new HashSet<Keys>();
         private readonly HashSet<Keys> boundPrimaryKeys = new HashSet<Keys>();
         private long sequence;
+        private Keys pendingModifierShortcut;
 
         // The editor preserves unchanged objects, so editing one skill leaves the others running.
         public void Configure(IEnumerable<Skill> skills)
@@ -41,23 +42,49 @@ namespace SkillVoiceTimer
 
         public void KeyEvent(Keys key, bool released, bool acceptCast, long now)
         {
-            if (KeyChoices.ModifierFlag(key) != Keys.None || key == Keys.LWin || key == Keys.RWin)
+            if (KeyChoices.ModifierFlag(key) != Keys.None)
             {
-                if (released) modifierKeysDown.Remove(key);
-                else modifierKeysDown.Add(key);
+                if (released)
+                {
+                    if (!modifierKeysDown.Remove(key)) return;
+                    if (acceptCast && pendingModifierShortcut != Keys.None) Start(pendingModifierShortcut, now);
+                    pendingModifierShortcut = Keys.None;
+                }
+                else if (modifierKeysDown.Add(key))
+                {
+                    pendingModifierShortcut = acceptCast ? KeyChoices.ModifierShortcut(CurrentModifiers()) : Keys.None;
+                }
                 return;
             }
-            if (released) { held.Remove(key); return; }
+            if (released)
+            {
+                if (!held.Remove(key) && key == Keys.PrintScreen && acceptCast)
+                {
+                    pendingModifierShortcut = Keys.None;
+                    Start(key | CurrentModifiers(), now);
+                }
+                return;
+            }
+            pendingModifierShortcut = Keys.None;
             // Also remember keys pressed in the editor until release, including a newly assigned key.
             if (!acceptCast)
             {
-                if (KeyChoices.All.Contains(key)) held.Add(key);
+                if (KeyChoices.IsKeyboardKey(key)) held.Add(key);
                 return;
             }
             if (!boundPrimaryKeys.Contains(key) || !held.Add(key)) return;
-            if (modifierKeysDown.Contains(Keys.LWin) || modifierKeysDown.Contains(Keys.RWin)) return;
-            var binding = key;
-            foreach (var modifier in modifierKeysDown) binding |= KeyChoices.ModifierFlag(modifier);
+            Start(key | CurrentModifiers(), now);
+        }
+
+        private Keys CurrentModifiers()
+        {
+            var flags = Keys.None;
+            foreach (var modifier in modifierKeysDown) flags |= KeyChoices.ModifierFlag(modifier);
+            return flags;
+        }
+
+        private void Start(Keys binding, long now)
+        {
             Skill skill;
             if (!bindings.TryGetValue(binding, out skill)) return;
             casts[binding] = new Cast { Skill = skill, Due = now + skill.DelaySeconds * 1000L, Order = ++sequence };
@@ -82,6 +109,6 @@ namespace SkillVoiceTimer
             return ((cast.Due - now + 999) / 1000) + " 秒后提醒";
         }
 
-        public void Clear() { casts.Clear(); held.Clear(); modifierKeysDown.Clear(); }
+        public void Clear() { casts.Clear(); held.Clear(); modifierKeysDown.Clear(); pendingModifierShortcut = Keys.None; }
     }
 }

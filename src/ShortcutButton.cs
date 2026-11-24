@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Windows.Forms;
 
 namespace SkillVoiceTimer
@@ -7,7 +8,10 @@ namespace SkillVoiceTimer
     internal sealed class ShortcutButton : Button
     {
         private readonly Dictionary<Keys, string> otherBindings;
+        private readonly Stopwatch escapeHold = new Stopwatch();
+        private const int BindEscapeMilliseconds = 600;
         private Keys consumedKey;
+        private Keys pendingModifiers;
 
         public Keys Binding { get; private set; }
         public bool Recording { get; private set; }
@@ -27,15 +31,19 @@ namespace SkillVoiceTimer
         {
             base.OnClick(e);
             Focus();
+            escapeHold.Reset();
             Recording = !Recording;
-            Hint = "按下技能键，可同时按住 Ctrl、Alt 或 Shift。Esc 取消录入。";
+            pendingModifiers = Keys.None;
+            Hint = "按下技能键或组合键。轻按 Esc 取消，长按 Esc 再松开可绑定。";
             UpdateCaption();
         }
 
         public void EndCapture()
         {
             if (!Recording) return;
+            escapeHold.Reset();
             Recording = false;
+            pendingModifiers = Keys.None;
             UpdateCaption();
         }
 
@@ -53,35 +61,74 @@ namespace SkillVoiceTimer
             if (!Recording) return base.ProcessCmdKey(ref msg, keyData);
 
             consumedKey = primary;
-            if (primary == Keys.Escape) { EndCapture(); return true; }
-            if (KeyChoices.ModifierFlag(primary) != Keys.None) return true;
-            if (!KeyChoices.All.Contains(primary) || KeyboardInput.IsDown(Keys.LWin) || KeyboardInput.IsDown(Keys.RWin))
+            var modifiers = (keyData & Keys.Modifiers) | KeyboardInput.WindowModifier();
+            var flag = KeyChoices.ModifierFlag(primary);
+            if (flag != Keys.None)
             {
-                Hint = "请换一个技能键，可搭配 Ctrl、Alt 或 Shift。Esc 取消。";
-                UpdateCaption();
+                pendingModifiers = modifiers | flag;
                 return true;
+            }
+            var binding = primary | modifiers;
+            if (binding == Keys.Escape)
+            {
+                pendingModifiers = Keys.None;
+                escapeHold.Restart();
+                Hint = "轻按松开会取消录入。按住至少 0.6 秒再松开，即可绑定 Esc。";
+                UpdateCaption();
+            }
+            else Record(binding);
+            return true;
+        }
+
+        private void Record(Keys binding)
+        {
+            escapeHold.Reset();
+            pendingModifiers = Keys.None;
+            if (!KeyChoices.CanBind(binding))
+            {
+                Hint = "请按一个键盘上的按键。Esc 取消。";
+                UpdateCaption();
+                return;
             }
 
             string owner;
-            if (otherBindings.TryGetValue(keyData, out owner))
+            if (otherBindings.TryGetValue(binding, out owner))
             {
-                Hint = KeyChoices.Label(keyData) + " 已绑定“" + owner + "”。请按其他快捷键，或按 Esc 取消。";
+                Hint = KeyChoices.Label(binding) + " 已绑定“" + owner + "”。请按其他快捷键，或按 Esc 取消。";
                 UpdateCaption();
-                return true;
+                return;
             }
 
-            Binding = keyData;
+            Binding = binding;
             EndCapture();
-            return true;
         }
 
         protected override void WndProc(ref Message m)
         {
             const int KeyUp = 0x0101, SystemKeyUp = 0x0105;
-            if ((m.Msg == KeyUp || m.Msg == SystemKeyUp) && consumedKey == (Keys)m.WParam.ToInt32())
+            if (m.Msg == KeyUp || m.Msg == SystemKeyUp)
             {
-                consumedKey = Keys.None;
-                return;
+                var key = (Keys)m.WParam.ToInt32();
+                if (Recording && key == Keys.Escape && escapeHold.IsRunning)
+                {
+                    if (escapeHold.ElapsedMilliseconds >= BindEscapeMilliseconds) Record(Keys.Escape);
+                    else EndCapture();
+                    consumedKey = Keys.None;
+                    return;
+                }
+                if (Recording && (pendingModifiers & KeyChoices.ModifierFlag(key)) != 0)
+                {
+                    Record(KeyChoices.ModifierShortcut(pendingModifiers));
+                    consumedKey = Keys.None;
+                    return;
+                }
+                // Some keyboards deliver Print Screen only on release.
+                if (Recording && key == Keys.PrintScreen && consumedKey != key)
+                {
+                    Record(key | ModifierKeys | KeyboardInput.WindowModifier());
+                    return;
+                }
+                if (consumedKey == key) { consumedKey = Keys.None; return; }
             }
             base.WndProc(ref m);
         }
