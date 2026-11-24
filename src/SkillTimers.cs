@@ -22,6 +22,8 @@ namespace SkillVoiceTimer
         private long sequence;
         private Keys pendingModifierShortcut;
 
+        public bool HasEnabledBindings { get { return bindings.Count > 0; } }
+
         // The editor preserves unchanged objects, so editing one skill leaves the others running.
         public void Configure(IEnumerable<Skill> skills)
         {
@@ -29,9 +31,12 @@ namespace SkillVoiceTimer
             boundPrimaryKeys.Clear();
             foreach (var skill in skills)
             {
-                bindings.Add(skill.Binding, skill);
+                // Track physical releases for all configured keys so enabling a held key
+                // cannot turn its next auto-repeat into a new cast.
                 boundPrimaryKeys.Add(skill.Key);
+                if (skill.Enabled) bindings.Add(skill.Binding, skill);
             }
+            if (!bindings.ContainsKey(pendingModifierShortcut)) pendingModifierShortcut = Keys.None;
             foreach (var entry in casts.ToList())
             {
                 Skill current;
@@ -52,7 +57,8 @@ namespace SkillVoiceTimer
                 }
                 else if (modifierKeysDown.Add(key))
                 {
-                    pendingModifierShortcut = acceptCast ? KeyChoices.ModifierShortcut(CurrentModifiers()) : Keys.None;
+                    var shortcut = KeyChoices.ModifierShortcut(CurrentModifiers());
+                    pendingModifierShortcut = acceptCast && bindings.ContainsKey(shortcut) ? shortcut : Keys.None;
                 }
                 return;
             }
@@ -102,6 +108,7 @@ namespace SkillVoiceTimer
 
         public string Status(Keys binding, long now)
         {
+            if (!bindings.ContainsKey(binding)) return "未勾选";
             Cast cast;
             if (!casts.TryGetValue(binding, out cast)) return "等待按键";
             if (cast.Announced) return "已提醒";

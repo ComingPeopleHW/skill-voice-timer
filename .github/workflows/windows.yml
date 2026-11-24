@@ -17,11 +17,14 @@ jobs:
         shell: pwsh
         env:
           SKILL_TIMER_EDITOR_PREVIEW: shortcut-editor.png
+          SKILL_TIMER_MAIN_PREVIEW: main.png
         run: ./tests/bin/Release/net48/SkillVoiceTimer.Checks.exe
       - uses: actions/upload-artifact@v4
         with:
           name: ShortcutEditorPreview
-          path: shortcut-editor.png
+          path: |
+            shortcut-editor.png
+            main.png
           if-no-files-found: error
       - name: Package portable Windows app
         shell: pwsh

@@ -61,7 +61,8 @@ namespace SkillVoiceTimer
             lead.ValueChanged += (s, e) => RefreshHint();
             save.Click += (s, e) =>
             {
-                Result = new Skill { Name = nameBox.Text.Trim(), Key = keyButton.Binding & Keys.KeyCode,
+                Result = new Skill { Name = nameBox.Text.Trim(), Enabled = original == null || original.Enabled,
+                    Key = keyButton.Binding & Keys.KeyCode,
                     Modifiers = keyButton.Binding & KeyChoices.StandardModifiers,
                     WithWindowsKey = (keyButton.Binding & KeyChoices.Win) != 0,
                     Duration = (int)duration.Value, Lead = (int)lead.Value };

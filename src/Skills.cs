@@ -12,6 +12,8 @@ namespace SkillVoiceTimer
     public sealed class Skill
     {
         public string Name { get; set; }
+        [DefaultValue(true)]
+        public bool Enabled { get; set; } = true;
         [XmlIgnore]
         public Keys Key { get; set; }
 

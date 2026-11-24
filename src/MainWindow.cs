@@ -14,8 +14,12 @@ namespace SkillVoiceTimer
         private readonly SkillTimers timers = new SkillTimers();
         private readonly Stopwatch clock = Stopwatch.StartNew();
         private readonly Timer pulse = new Timer { Interval = 100 };
-        private readonly ListView list = new ListView { Dock = DockStyle.Fill, View = View.Details,
-            FullRowSelect = true, MultiSelect = false, HideSelection = false, HeaderStyle = ColumnHeaderStyle.Nonclickable };
+        private readonly DataGridView list = new DataGridView {
+            Dock = DockStyle.Fill, AllowUserToAddRows = false, AllowUserToDeleteRows = false,
+            AllowUserToResizeRows = false, RowHeadersVisible = false, MultiSelect = false,
+            SelectionMode = DataGridViewSelectionMode.FullRowSelect, BackgroundColor = SystemColors.Window,
+            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill, AccessibleName = "技能列表"
+        };
         private readonly Button listen = MakeButton("开始监听");
         private readonly Button edit = MakeButton("编辑");
         private readonly Button remove = MakeButton("删除");
@@ -52,16 +56,20 @@ namespace SkillVoiceTimer
             var heading = new Label { Text = "技能语音提醒", Dock = DockStyle.Fill,
                 Font = new Font(Font.FontFamily, 16, FontStyle.Bold), TextAlign = ContentAlignment.MiddleLeft };
             layout.Controls.Add(heading, 0, 0);
-            layout.Controls.Add(new Label { Text = "设置技能后点击“开始监听”。最小化到托盘后，游戏内按键仍可计时。",
+            layout.Controls.Add(new Label { Text = "勾选要监听的技能，再点击“开始监听”。最小化到托盘后仍可计时。",
                 Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft }, 0, 1);
             var bar = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, Margin = Padding.Empty };
             var add = MakeButton("添加技能");
             bar.Controls.AddRange(new Control[] { listen, add, edit, remove, preview });
             layout.Controls.Add(bar, 0, 2);
+            list.Columns.Add(new DataGridViewCheckBoxColumn {
+                Name = "enabled", HeaderText = "监听", Width = 55, AutoSizeMode = DataGridViewAutoSizeColumnMode.None
+            });
             string[] columns = { "技能名", "技能键", "持续时间", "提前提醒", "计时状态" };
-            int[] widths = { 155, 195, 90, 90, 145 };
-            for (int i = 0; i < columns.Length; i++) list.Columns.Add(columns[i], widths[i]);
-            list.AccessibleName = "技能列表";
+            int[] weights = { 130, 165, 85, 85, 130 };
+            for (int i = 0; i < columns.Length; i++)
+                list.Columns.Add(new DataGridViewTextBoxColumn { Name = columns[i], HeaderText = columns[i],
+                    FillWeight = weights[i], ReadOnly = true, SortMode = DataGridViewColumnSortMode.NotSortable });
             layout.Controls.Add(list, 0, 3);
             layout.Controls.Add(status, 0, 4);
 
@@ -75,8 +83,17 @@ namespace SkillVoiceTimer
                 if (selected == null || !OpenVoice() || voice.Busy) return;
                 Speak(selected.Name);
             };
-            list.DoubleClick += (s, e) => { if (Selected != null) EditSkill(Selected); };
-            list.SelectedIndexChanged += (s, e) => UpdateActions();
+            list.CellDoubleClick += (s, e) =>
+            {
+                if (e.RowIndex >= 0 && e.ColumnIndex > 0) EditSkill((Skill)list.Rows[e.RowIndex].Tag);
+            };
+            list.SelectionChanged += (s, e) => UpdateActions();
+            list.CurrentCellDirtyStateChanged += (s, e) =>
+            {
+                if (list.CurrentCell is DataGridViewCheckBoxCell && list.IsCurrentCellDirty)
+                    list.CommitEdit(DataGridViewDataErrorContexts.Commit);
+            };
+            list.CellValueChanged += OnSkillChecked;
             trayMenu.Items.Add("打开主窗口", null, (s, e) => RestoreWindow());
             trayMenu.Items.Add(trayListen);
             trayMenu.Items.Add("退出", null, (s, e) => Close());
@@ -89,7 +106,6 @@ namespace SkillVoiceTimer
             };
             pulse.Tick += (s, e) => TickTimers();
             Populate(skills.FirstOrDefault());
-            status.Text = "监听已暂停";
             pulse.Start();
         }
 
@@ -99,29 +115,59 @@ namespace SkillVoiceTimer
                 Margin = new Padding(0, 4, 8, 4), UseVisualStyleBackColor = true };
         }
 
-        private Skill Selected { get { return list.SelectedItems.Count == 0 ? null : (Skill)list.SelectedItems[0].Tag; } }
+        private Skill Selected { get { return list.CurrentRow?.Tag as Skill; } }
 
         private void Populate(Skill selected)
         {
-            list.BeginUpdate();
-            list.Items.Clear();
+            list.Rows.Clear();
             foreach (var skill in skills)
             {
-                var item = new ListViewItem(new[] { skill.Name, KeyChoices.Label(skill.Binding),
-                    skill.Duration + " 秒", skill.Lead + " 秒", timers.Status(skill.Binding, clock.ElapsedMilliseconds) });
-                item.Tag = skill;
-                list.Items.Add(item);
-                item.Selected = skill == selected;
+                int index = list.Rows.Add(skill.Enabled, skill.Name, KeyChoices.Label(skill.Binding),
+                    skill.Duration + " 秒", skill.Lead + " 秒", timers.Status(skill.Binding, clock.ElapsedMilliseconds));
+                var row = list.Rows[index];
+                row.Tag = skill;
+                if (skill == selected) list.CurrentCell = row.Cells[1];
             }
-            list.EndUpdate();
+            RefreshListeningStatus();
             UpdateActions();
+        }
+
+        private void OnSkillChecked(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0 || e.ColumnIndex != 0) return;
+            var row = list.Rows[e.RowIndex];
+            var skill = row.Tag as Skill;
+            bool enabled = Equals(row.Cells[0].Value, true);
+            if (skill == null || skill.Enabled == enabled) return;
+
+            skill.Enabled = enabled;
+            try { store.Save(skills); }
+            catch (Exception ex)
+            {
+                skill.Enabled = !enabled;
+                row.Cells[0].Value = skill.Enabled;
+                Alert("监听选项保存失败。", ex);
+                return;
+            }
+            timers.Configure(skills);
+            row.Cells["计时状态"].Value = timers.Status(skill.Binding, clock.ElapsedMilliseconds);
+            RefreshListeningStatus();
+            UpdateActions();
+        }
+
+        private void RefreshListeningStatus()
+        {
+            if (!timers.HasEnabledBindings)
+                status.Text = listening ? "监听已开启，等待勾选技能" : "请先勾选要监听的技能";
+            else
+                status.Text = listening ? "正在监听  ·  " + voice.Name : "监听已暂停";
         }
 
         private void UpdateActions()
         {
             edit.Enabled = remove.Enabled = Selected != null;
             preview.Enabled = Selected != null && (voice == null || !voice.Busy);
-            listen.Enabled = trayListen.Enabled = listening || skills.Count > 0;
+            listen.Enabled = trayListen.Enabled = listening || timers.HasEnabledBindings;
         }
 
         private void RestoreWindow()
@@ -204,7 +250,7 @@ namespace SkillVoiceTimer
 
         private void ToggleListening()
         {
-            if (!listening && (skills.Count == 0 || !OpenVoice())) return;
+            if (!listening && (!timers.HasEnabledBindings || !OpenVoice())) return;
             try { KeyboardInput.Register(Handle, !listening); }
             catch (Exception ex) { Alert("键盘监听设置失败。", ex); return; }
             listening = !listening;
@@ -220,7 +266,7 @@ namespace SkillVoiceTimer
             }
             listen.Text = trayListen.Text = listening ? "暂停监听" : "开始监听";
             tray.Text = listening ? "技能语音提醒 · 正在监听" : "技能语音提醒 · 已暂停";
-            status.Text = listening ? "正在监听  ·  " + voice.Name : "监听已暂停";
+            RefreshListeningStatus();
             UpdateActions();
         }
 
@@ -239,7 +285,10 @@ namespace SkillVoiceTimer
                 Keys key;
                 bool released;
                 if (KeyboardInput.Read(m.LParam, out key, out released))
-                    timers.KeyEvent(key, released, !modal, clock.ElapsedMilliseconds);
+                {
+                    bool togglingCheckbox = key == Keys.Space && list.ContainsFocus && list.CurrentCell is DataGridViewCheckBoxCell;
+                    timers.KeyEvent(key, released, !modal && !togglingCheckbox, clock.ElapsedMilliseconds);
+                }
             }
             base.WndProc(ref m);
         }
@@ -254,10 +303,11 @@ namespace SkillVoiceTimer
             }
             if (Visible)
             {
-                foreach (ListViewItem item in list.Items)
+                foreach (DataGridViewRow row in list.Rows)
                 {
-                    string current = timers.Status(((Skill)item.Tag).Binding, now);
-                    if (item.SubItems[4].Text != current) item.SubItems[4].Text = current;
+                    string current = timers.Status(((Skill)row.Tag).Binding, now);
+                    var cell = row.Cells["计时状态"];
+                    if (!Equals(cell.Value, current)) cell.Value = current;
                 }
                 UpdateActions();
             }

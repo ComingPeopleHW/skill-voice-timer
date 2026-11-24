@@ -85,7 +85,8 @@ internal static partial class Checks
         var store = new SkillStore(path);
         File.WriteAllText(path, "<ArrayOfSkill><Skill><Name>旧技能</Name><Key>F1</Key>" +
             "<Modifiers>Shift Control</Modifiers><Duration>60</Duration><Lead>5</Lead></Skill></ArrayOfSkill>");
-        Check(store.Load().Single().Binding == (Keys.F1 | Keys.Shift | Keys.Control), "v0.2 named XML bindings still load");
+        var legacy = store.Load().Single();
+        Check(legacy.Binding == (Keys.F1 | Keys.Shift | Keys.Control) && legacy.Enabled, "v0.2 named XML bindings load enabled");
 
         var inputs = new[] { Keys.Home, Keys.End, Keys.Control | Keys.Home, Keys.Shift | Keys.End,
             Keys.PageUp, Keys.PageDown, Keys.Insert, Keys.Delete, Keys.Enter, Keys.Back, Keys.Add,
