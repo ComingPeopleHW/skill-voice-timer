@@ -37,12 +37,18 @@ internal static partial class Checks
         runtime.KeyEvent(a.Key, false, true, 2000);
         Check(runtime.TakeDue(54999) == null, "no early announcement");
         Check(runtime.TakeDue(55000) == a, "60 minus 5 and held key repeat");
-        Check(runtime.TakeDue(999999) == null, "one reminder per cast");
+        Check(runtime.TakeDue(55001) == null, "one reminder per cast");
         runtime.KeyEvent(a.Key, true, true, 56000);
         Press(runtime, a.Key, 60000);
         Press(runtime, a.Key, 100000);
-        Check(runtime.TakeDue(115000) == null, "recast invalidates original deadline");
-        Check(runtime.TakeDue(155000) == a, "new deadline is relative to recast");
+        runtime.KeyEvent(a.Key, false, true, 114999);
+        Check(runtime.TakeDue(114999) == null && runtime.TakeDue(115000) == a,
+            "repeated presses before the deadline keep the first reminder on time");
+        runtime.KeyEvent(a.Key, false, true, 115000);
+        runtime.KeyEvent(a.Key, true, true, 115001);
+        Check(runtime.TakeDue(155000) == null && runtime.TakeDue(169999) == null,
+            "ignored presses never schedule extra reminders");
+        Check(runtime.TakeDue(170000) == null, "a key held across the deadline cannot start another countdown");
 
         Press(runtime, b.Key, 200000);
         Press(runtime, a.Key, 255000);
@@ -53,8 +59,12 @@ internal static partial class Checks
 
         Press(runtime, b.Key, 400000);
         Press(runtime, a.Key, 455000);
-        Check(runtime.TakeDue(510000) == b && runtime.TakeDue(510001) == a &&
-            runtime.TakeDue(510100) == null, "independent one-shot dispatch in sequence");
+        Press(runtime, b.Key, 509999);
+        Check(runtime.TakeDue(510000) == b && runtime.TakeDue(510000) == a &&
+            runtime.TakeDue(510000) == null, "independent one-shot dispatch in sequence");
+        Press(runtime, a.Key, 510000);
+        Check(runtime.TakeDue(564999) == null && runtime.TakeDue(565000) == a,
+            "a fresh press at the reminder deadline starts the next full countdown");
         Press(runtime, b.Key, 600000);
         Press(runtime, a.Key, 600000);
         runtime.Configure(new[] { b });

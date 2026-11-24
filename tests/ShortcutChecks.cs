@@ -40,6 +40,9 @@ internal static partial class Checks
         timers.KeyEvent(Keys.RControlKey, true, true, 2001);
         timers.KeyEvent(Keys.Q, false, true, 2010);
         timers.KeyEvent(Keys.Q, true, true, 2011);
+        timers.KeyEvent(Keys.LControlKey, false, true, 20000);
+        Press(timers, Keys.Q, 20001);
+        timers.KeyEvent(Keys.LControlKey, true, true, 20002);
         Check(timers.TakeDue(55000) == plain && timers.TakeDue(57000) == ctrl && timers.TakeDue(59000) == null,
             "exact independent bindings, either Ctrl side, no repeat after modifier release");
 

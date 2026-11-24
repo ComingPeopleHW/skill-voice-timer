@@ -100,6 +100,8 @@ namespace SkillVoiceTimer
         {
             Skill skill;
             if (!bindings.TryGetValue(binding, out skill)) return;
+            Cast current;
+            if (casts.TryGetValue(binding, out current) && now < current.Due) return;
             casts[binding] = new Cast { Skill = skill, Due = now + skill.DelaySeconds * 1000L, Order = ++sequence };
         }
 
