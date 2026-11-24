@@ -85,8 +85,18 @@ internal static partial class Checks
         var store = new SkillStore(Path.Combine(folder, "keyboard-presets.xml"), path);
         File.WriteAllText(path, "<ArrayOfSkill><Skill><Name>旧技能</Name><Key>F1</Key>" +
             "<Modifiers>Shift Control</Modifiers><Duration>60</Duration><Lead>5</Lead></Skill></ArrayOfSkill>");
-        var legacy = store.Load().Current.Skills.Single();
+        var originalXml = File.ReadAllText(path);
+        var migration = store.Load();
+        var legacy = migration.Current.Skills.Single();
         Check(legacy.Binding == (Keys.F1 | Keys.Shift | Keys.Control) && legacy.Enabled, "v0.2 named XML bindings load enabled");
+
+        File.WriteAllText(path, originalXml.Replace("<Duration>", "<Enabled>false</Enabled><Duration>"));
+        var disabledLegacy = store.Load();
+        Check(!disabledLegacy.Current.Skills.Single().Enabled && disabledLegacy.Current.Name == "默认" &&
+            disabledLegacy.Volume == 100, "v0.4 unchecked state migrates into the default preset");
+        string oldXml = File.ReadAllText(path);
+        store.Save(disabledLegacy);
+        Check(File.ReadAllText(path) == oldXml, "saving presets preserves the original v0.4 file");
 
         var inputs = new[] { Keys.Home, Keys.End, Keys.Control | Keys.Home, Keys.Shift | Keys.End,
             Keys.PageUp, Keys.PageDown, Keys.Insert, Keys.Delete, Keys.Enter, Keys.Back, Keys.Add,

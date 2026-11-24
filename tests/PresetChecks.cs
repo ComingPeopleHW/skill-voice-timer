@@ -36,9 +36,9 @@ internal static partial class Checks
         var controls = layout.Controls.OfType<FlowLayoutPanel>().SelectMany(p => p.Controls.Cast<Control>()).ToArray();
         var selector = controls.OfType<ComboBox>().Single();
         var volume = controls.OfType<NumericUpDown>().Single();
-        var add = controls.OfType<Button>().Single(b => b.Text == "新建预设");
-        var rename = controls.OfType<Button>().Single(b => b.Text == "重命名");
-        var delete = controls.OfType<Button>().Single(b => b.Text == "删除预设");
+        var add = controls.OfType<Button>().Single(button => button.Text == "新建预设");
+        var rename = controls.OfType<Button>().Single(button => button.Text == "重命名");
+        var delete = controls.OfType<Button>().Single(button => button.Text == "删除预设");
         var grid = layout.Controls.OfType<DataGridView>().Single();
         Check(selector.Items.Count == 1 && !delete.Enabled && volume.Value == 100, "single default preset at original speech volume");
         volume.Value = 35;
@@ -97,16 +97,16 @@ internal static partial class Checks
         Check(rejected && store.Load().Volume == 0, "invalid volume leaves previous settings intact");
 
         var timers = new SkillTimers();
-        var a = Bound("旧技能", Keys.Home);
-        var b = Bound("新技能", Keys.Home);
-        timers.Configure(new[] { a });
+        var oldSkill = Bound("旧技能", Keys.Home);
+        var newSkill = Bound("新技能", Keys.Home);
+        timers.Configure(new[] { oldSkill });
         timers.KeyEvent(Keys.Home, false, true, 0);
-        timers.SwitchPreset(new[] { b });
+        timers.SwitchPreset(new[] { newSkill });
         timers.KeyEvent(Keys.Home, false, true, 100);
         Check(timers.TakeDue(100000) == null, "switch clears old timers and ignores autorepeat from the old preset");
         timers.KeyEvent(Keys.Home, true, true, 100010);
         Press(timers, Keys.Home, 100020);
-        Check(timers.TakeDue(155020) == b, "same key fires only the active preset's skill after release");
+        Check(timers.TakeDue(155020) == newSkill, "same key fires only the active preset's skill after release");
     }
 
     private static double SpeechEnergy(int volume)
