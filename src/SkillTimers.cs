@@ -45,6 +45,13 @@ namespace SkillVoiceTimer
             }
         }
 
+        public void SwitchPreset(IEnumerable<Skill> skills)
+        {
+            casts.Clear();
+            pendingModifierShortcut = Keys.None;
+            Configure(skills);
+        }
+
         public void KeyEvent(Keys key, bool released, bool acceptCast, long now)
         {
             if (KeyChoices.ModifierFlag(key) != Keys.None)

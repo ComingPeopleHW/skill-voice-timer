@@ -20,13 +20,13 @@ namespace SkillVoiceTimer
                     MessageBox.Show("技能语音提醒已在运行，可从任务栏通知区域打开。", "技能语音提醒");
                     return;
                 }
-                var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "SkillVoiceTimer", "skills.xml");
-                var store = new SkillStore(path);
+                var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SkillVoiceTimer");
+                var path = Path.Combine(directory, "presets.xml");
+                var store = new SkillStore(path, Path.Combine(directory, "skills.xml"));
                 try
                 {
-                    var skills = store.Load();
-                    using (var window = new MainWindow(store, skills)) Application.Run(window);
+                    var settings = store.Load();
+                    using (var window = new MainWindow(store, settings)) Application.Run(window);
                 }
                 catch (Exception ex)
                 {

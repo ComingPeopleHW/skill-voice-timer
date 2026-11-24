@@ -7,6 +7,7 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="System.Speech" />
     <ProjectReference Include="..\SkillVoiceTimer.csproj" />
   </ItemGroup>
 </Project>

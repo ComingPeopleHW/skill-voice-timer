@@ -93,7 +93,7 @@ internal static partial class Checks
     {
         var layout = (TableLayoutPanel)window.Controls[0];
         var grid = layout.Controls.OfType<DataGridView>().Single();
-        var start = layout.Controls.OfType<FlowLayoutPanel>().Single().Controls.OfType<Button>()
+        var start = layout.Controls.OfType<FlowLayoutPanel>().SelectMany(p => p.Controls.OfType<Button>())
             .Single(button => button.Text == "开始监听");
         Check(grid.Rows.Cast<DataGridViewRow>().All(row => Equals(row.Cells["enabled"].Value, true)),
             "old profiles start with all rows checked");
@@ -103,7 +103,7 @@ internal static partial class Checks
         SendMessage(grid.Handle, 0x0101, (IntPtr)(int)Keys.Space, IntPtr.Zero);
         Application.DoEvents();
         Check(!skills[1].Enabled && Equals(grid.Rows[1].Cells["计时状态"].Value, "未勾选") &&
-            !store.Load()[1].Enabled && start.Enabled, "checkbox commits immediately, updates row status and saves");
+            !store.Load().Current.Skills[1].Enabled && start.Enabled, "checkbox commits immediately, updates row status and saves");
         grid.CurrentCell = grid.Rows[0].Cells[1];
         start.Focus();
         Application.DoEvents();
@@ -117,7 +117,7 @@ internal static partial class Checks
             editor.Close();
         }
         grid.Rows[0].Cells["enabled"].Value = false;
-        Check(!start.Enabled && store.Load().All(skill => !skill.Enabled), "cannot start with zero checked skills");
+        Check(!start.Enabled && store.Load().Current.Skills.All(skill => !skill.Enabled), "cannot start with zero checked skills");
         using (var reopened = new MainWindow(store, store.Load()))
         {
             reopened.Show();
@@ -128,6 +128,6 @@ internal static partial class Checks
         }
         grid.Rows[0].Cells["enabled"].Value = true;
         grid.Rows[1].Cells["enabled"].Value = true;
-        Check(start.Enabled && store.Load().All(skill => skill.Enabled), "rechecking restores active bindings");
+        Check(start.Enabled && store.Load().Current.Skills.All(skill => skill.Enabled), "rechecking restores active bindings");
     }
 }

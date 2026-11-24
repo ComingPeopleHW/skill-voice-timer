@@ -71,16 +71,17 @@ internal static partial class Checks
         Directory.CreateDirectory(temp);
         try
         {
-            var store = new SkillStore(Path.Combine(temp, "skills.xml"));
-            Check(store.Load().Single().DelaySeconds == 55, "new profile example");
-            store.Save(new List<Skill> { a, b });
-            var loaded = store.Load();
+            var store = new SkillStore(Path.Combine(temp, "presets.xml"));
+            Check(store.Load().Current.Skills.Single().DelaySeconds == 55, "new profile example");
+            store.Save(TimerSettings.FromSkills(new List<Skill> { a, b }));
+            var config = store.Load();
+            var loaded = config.Current.Skills;
             Check(loaded.Count == 2 && loaded[1].Name == b.Name && loaded[1].DelaySeconds == 110 &&
                 loaded[1].Key == b.Key && loaded[1].Modifiers == Keys.None, "Chinese profile roundtrip");
             bool rejected = false;
-            try { store.Save(new List<Skill> { a, a }); }
+            try { store.Save(TimerSettings.FromSkills(new List<Skill> { a, a })); }
             catch (InvalidDataException) { rejected = true; }
-            Check(rejected && store.Load().Count == 2, "duplicate binding leaves saved profile intact");
+            Check(rejected && store.Load().Current.Skills.Count == 2, "duplicate binding leaves saved profile intact");
             rejected = false;
             try { new Skill { Name = "x", Key = Keys.Q, Duration = 5, Lead = 5 }.Validate(); }
             catch (InvalidDataException) { rejected = true; }
@@ -88,13 +89,13 @@ internal static partial class Checks
             var instant = new Skill { Name = "x", Key = Keys.Q, Duration = 1, Lead = 0 };
             instant.Validate();
             Check(instant.DelaySeconds == 1, "zero lead allowed");
-            store.Save(new List<Skill>());
-            Check(store.Load().Count == 0, "empty profile persists");
+            store.Save(TimerSettings.FromSkills(new List<Skill>()));
+            Check(store.Load().Current.Skills.Count == 0, "empty profile persists");
             CheckShortcuts(store);
             CheckSelectionTimers();
             Check(Marshal.SizeOf(typeof(KeyboardInput.Header)) == (IntPtr.Size == 8 ? 24 : 16) &&
                 Marshal.SizeOf(typeof(KeyboardInput.KeyboardPacket)) == (IntPtr.Size == 8 ? 40 : 32), "Win32 keyboard ABI");
-            using (var window = new MainWindow(store, loaded))
+            using (var window = new MainWindow(store, config))
             {
                 window.Show();
                 Application.DoEvents();
@@ -104,8 +105,10 @@ internal static partial class Checks
                 CheckSelectionUi(window, store, loaded);
                 CheckEditor(window, loaded);
                 CheckExpandedKeys(temp, window);
+                CheckPresets(window, store);
                 window.Close();
             }
+            CheckVolumeOutput();
         }
         finally { Directory.Delete(temp, true); }
         Console.WriteLine(checks + " checks passed.");

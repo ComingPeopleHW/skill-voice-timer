@@ -24,8 +24,8 @@ internal static partial class Checks
         var all = Bound("结界", Keys.Control | Keys.Alt | Keys.Shift | Keys.Q);
         var shifted = Bound("疾跑", Keys.Shift | Keys.D1);
         var skills = new List<Skill> { plain, ctrl, all, shifted };
-        store.Save(skills);
-        Check(store.Load().Select(s => s.Binding).SequenceEqual(skills.Select(s => s.Binding)),
+        store.Save(TimerSettings.FromSkills(skills));
+        Check(store.Load().Current.Skills.Select(s => s.Binding).SequenceEqual(skills.Select(s => s.Binding)),
             "plain and multi-modifier shortcuts roundtrip together");
         Check(KeyChoices.Label(all.Binding) == "Ctrl + Alt + Shift + Q" &&
             KeyChoices.Label(shifted.Binding) == "Shift + 1", "readable shortcut labels");
@@ -82,10 +82,10 @@ internal static partial class Checks
     private static void CheckExpandedKeys(string folder, MainWindow window)
     {
         var path = Path.Combine(folder, "keyboard.xml");
-        var store = new SkillStore(path);
+        var store = new SkillStore(Path.Combine(folder, "keyboard-presets.xml"), path);
         File.WriteAllText(path, "<ArrayOfSkill><Skill><Name>旧技能</Name><Key>F1</Key>" +
             "<Modifiers>Shift Control</Modifiers><Duration>60</Duration><Lead>5</Lead></Skill></ArrayOfSkill>");
-        var legacy = store.Load().Single();
+        var legacy = store.Load().Current.Skills.Single();
         Check(legacy.Binding == (Keys.F1 | Keys.Shift | Keys.Control) && legacy.Enabled, "v0.2 named XML bindings load enabled");
 
         var inputs = new[] { Keys.Home, Keys.End, Keys.Control | Keys.Home, Keys.Shift | Keys.End,
@@ -109,8 +109,8 @@ internal static partial class Checks
                 editor.Close();
             }
         }
-        store.Save(recorded);
-        var restored = store.Load();
+        store.Save(TimerSettings.FromSkills(recorded));
+        var restored = store.Load().Current.Skills;
         Check(restored.Select(skill => skill.Binding).SequenceEqual(inputs), "expanded and unnamed VK bindings survive restart");
         foreach (var skill in restored)
         {

@@ -4,7 +4,6 @@ using System.ComponentModel;
 using System.IO;
 using System.Globalization;
 using System.Windows.Forms;
-using System.Xml;
 using System.Xml.Serialization;
 
 namespace SkillVoiceTimer
@@ -34,6 +33,8 @@ namespace SkillVoiceTimer
         public int Lead { get; set; }
 
         public int DelaySeconds { get { return Duration - Lead; } }
+
+        internal Skill Copy() { return (Skill)MemberwiseClone(); }
 
         public void Validate()
         {
@@ -139,49 +140,4 @@ namespace SkillVoiceTimer
         }
     }
 
-    internal sealed class SkillStore
-    {
-        private readonly string path;
-        private readonly XmlSerializer serializer = new XmlSerializer(typeof(List<Skill>));
-
-        public SkillStore(string path) { this.path = path; }
-
-        public List<Skill> Load()
-        {
-            if (!File.Exists(path))
-                return new List<Skill> { new Skill { Name = "护盾", Key = Keys.F1, Duration = 60, Lead = 5 } };
-            using (var reader = XmlReader.Create(path, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit }))
-            {
-                var skills = (List<Skill>)serializer.Deserialize(reader);
-                Validate(skills);
-                return skills;
-            }
-        }
-
-        private static void Validate(List<Skill> skills)
-        {
-            var used = new HashSet<Keys>();
-            foreach (var skill in skills)
-            {
-                skill.Validate();
-                if (!used.Add(skill.Binding))
-                    throw new InvalidDataException("每个快捷键只能绑定一个技能。");
-            }
-        }
-
-        public void Save(List<Skill> skills)
-        {
-            Validate(skills);
-            Directory.CreateDirectory(Path.GetDirectoryName(path));
-            var temp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
-            try
-            {
-                using (var stream = File.Create(temp))
-                    serializer.Serialize(stream, skills);
-                if (File.Exists(path)) File.Replace(temp, path, null);
-                else File.Move(temp, path);
-            }
-            finally { if (File.Exists(temp)) File.Delete(temp); }
-        }
-    }
 }
