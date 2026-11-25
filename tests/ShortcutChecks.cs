@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.Linq;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -91,6 +89,8 @@ internal static partial class Checks
         var originalXml = File.ReadAllText(path);
         var migration = store.Load();
         var legacy = migration.Current.Skills.Single();
+        Check(legacy.Id != Guid.Empty && legacy.ReserveForId == null && legacy.BufferSeconds == 3,
+            "legacy skills receive local IDs and default to independent reminders");
         Check(legacy.Binding == (Keys.F1 | Keys.Shift | Keys.Control) && legacy.Enabled, "v0.2 named XML bindings load enabled");
 
         File.WriteAllText(path, originalXml.Replace("<Duration>", "<Enabled>false</Enabled><Duration>"));
@@ -205,6 +205,7 @@ internal static partial class Checks
             Check(button.Binding == Keys.F1 && save.Enabled, "existing single-key profile opens in editor");
             button.PerformClick();
             Check(button.Recording && !save.Enabled, "click arms recording and waits for a key");
+            CapturePreview(editor, "SKILL_TIMER_RECORDING_PREVIEW");
             KeyDown(button, Keys.Control | Keys.ControlKey);
             Check(button.Recording && button.Binding == Keys.F1, "bare Ctrl waits for primary key");
             SendMessage(button.Handle, 0x0101, (IntPtr)(int)Keys.ControlKey, IntPtr.Zero);
@@ -239,15 +240,7 @@ internal static partial class Checks
             Check(KeyDown(button, Keys.Control | Keys.Q) && save.Enabled && !button.Recording &&
                 button.Binding == (Keys.Control | Keys.Q) && skills[0].Binding == Keys.F1,
                 "Ctrl + Q is staged without changing saved skill");
-            var preview = Environment.GetEnvironmentVariable("SKILL_TIMER_EDITOR_PREVIEW");
-            if (!string.IsNullOrEmpty(preview))
-            {
-                using (var bitmap = new Bitmap(editor.Width, editor.Height))
-                {
-                    editor.DrawToBitmap(bitmap, new Rectangle(Point.Empty, editor.Size));
-                    bitmap.Save(preview, ImageFormat.Png);
-                }
-            }
+            CapturePreview(editor, "SKILL_TIMER_EDITOR_PREVIEW");
             save.PerformClick();
             Check(editor.Result.Name == skills[0].Name && editor.Result.Key == Keys.Q &&
                   editor.Result.Modifiers == Keys.Control, "save commits exact captured shortcut");

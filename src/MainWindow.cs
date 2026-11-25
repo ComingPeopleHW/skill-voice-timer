@@ -228,7 +228,7 @@ namespace SkillVoiceTimer
                     var updated = new List<Skill>(CurrentSkills);
                     if (original == null) updated.Add(editor.Result);
                     else updated[updated.IndexOf(original)] = editor.Result;
-                    Apply(updated, editor.Result);
+                    Apply(updated, editor.Result, original);
                 }
             }
             finally { modal = false; }
@@ -243,18 +243,18 @@ namespace SkillVoiceTimer
             {
                 if (MessageBox.Show(this, "删除技能“" + selected.Name + "”？", Text,
                     MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
-                var updated = CurrentSkills.Where(s => s != selected).ToList();
+                var updated = settings.Current.Without(selected);
                 Apply(updated, updated.FirstOrDefault());
             }
             finally { modal = false; }
         }
 
-        private void Apply(List<Skill> updated, Skill selected)
+        private void Apply(List<Skill> updated, Skill selected, Skill edited = null)
         {
             var next = settings.Draft();
             next.Current.Skills = updated;
             if (!SaveSettings(next)) return;
-            timers.Configure(CurrentSkills);
+            timers.Configure(CurrentSkills, edited);
             if (CurrentSkills.Count == 0 && listening) ToggleListening();
             Populate(selected);
         }
@@ -415,9 +415,9 @@ namespace SkillVoiceTimer
         private void TickTimers()
         {
             long now = clock.ElapsedMilliseconds;
-            if (listening && !voice.Busy)
+            if (listening)
             {
-                var due = timers.TakeDue(now);
+                var due = timers.TakeDue(now, !voice.Busy);
                 if (due != null) Speak(due.Name);
             }
             if (Visible)

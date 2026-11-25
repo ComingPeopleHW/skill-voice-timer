@@ -11,6 +11,23 @@ namespace SkillVoiceTimer
     {
         public string Name { get; set; }
         public List<Skill> Skills { get; set; } = new List<Skill>();
+
+        internal List<Skill> Without(Skill removed)
+        {
+            var remaining = new List<Skill>();
+            foreach (var skill in Skills)
+            {
+                if (skill.Id == removed.Id) continue;
+                if (skill.ReserveForId != removed.Id) remaining.Add(skill);
+                else
+                {
+                    var unlinked = skill.Copy();
+                    unlinked.ReserveForId = null;
+                    remaining.Add(unlinked);
+                }
+            }
+            return remaining;
+        }
     }
 
     public sealed class TimerSettings
@@ -45,11 +62,17 @@ namespace SkillVoiceTimer
                 if (string.IsNullOrWhiteSpace(preset.Name) || preset.Name.Length > 40 || !names.Add(preset.Name.Trim()))
                     throw new InvalidDataException("预设名称须为 1 到 40 个字符，且不能重复。");
                 var bindings = new HashSet<System.Windows.Forms.Keys>();
+                var ids = new HashSet<Guid>();
                 foreach (var skill in preset.Skills)
                 {
                     skill.Validate();
+                    if (skill.Id == Guid.Empty || !ids.Add(skill.Id))
+                        throw new InvalidDataException("预设内的技能标识无效或重复。");
                     if (!bindings.Add(skill.Binding)) throw new InvalidDataException("一个预设内每个快捷键只能绑定一个技能。");
                 }
+                foreach (var skill in preset.Skills)
+                    if (skill.ReserveForId.HasValue && (skill.ReserveForId == skill.Id || !ids.Contains(skill.ReserveForId.Value)))
+                        throw new InvalidDataException("只能为同一预设中的其他技能留用。");
             }
         }
     }

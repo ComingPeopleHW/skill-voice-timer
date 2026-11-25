@@ -70,9 +70,9 @@ internal static partial class Checks
     [DllImport("user32.dll")]
     private static extern bool PrintWindow(IntPtr window, IntPtr dc, uint flags);
 
-    private static void CaptureMainPreview(MainWindow window)
+    private static void CapturePreview(Form window, string variable)
     {
-        var path = Environment.GetEnvironmentVariable("SKILL_TIMER_MAIN_PREVIEW");
+        var path = Environment.GetEnvironmentVariable(variable);
         if (string.IsNullOrEmpty(path)) return;
         window.Refresh();
         using (var bitmap = new Bitmap(window.Width, window.Height))
@@ -107,7 +107,7 @@ internal static partial class Checks
         grid.CurrentCell = grid.Rows[0].Cells[1];
         start.Focus();
         Application.DoEvents();
-        CaptureMainPreview(window);
+        CapturePreview(window, "SKILL_TIMER_MAIN_PREVIEW");
 
         using (var editor = new SkillEditor(skills, skills[1]))
         {

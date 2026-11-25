@@ -103,6 +103,7 @@ internal static partial class Checks
             Check(store.Load().Current.Skills.Count == 0, "empty profile persists");
             CheckShortcuts(store);
             CheckSelectionTimers();
+            CheckLinkedTimers();
             Check(Marshal.SizeOf(typeof(KeyboardInput.Header)) == (IntPtr.Size == 8 ? 24 : 16) &&
                 Marshal.SizeOf(typeof(KeyboardInput.KeyboardPacket)) == (IntPtr.Size == 8 ? 40 : 32), "Win32 keyboard ABI");
             using (var window = new MainWindow(store, config))
@@ -115,6 +116,7 @@ internal static partial class Checks
                 CheckSelectionUi(window, store, loaded);
                 CheckEditor(window, loaded);
                 CheckExpandedKeys(temp, window);
+                CheckLinkEditor(window, temp);
                 CheckPresets(window, store);
                 window.Close();
             }

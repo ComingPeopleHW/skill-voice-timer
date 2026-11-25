@@ -10,6 +10,11 @@ namespace SkillVoiceTimer
 {
     public sealed class Skill
     {
+        // IDs are local to a preset. Older XML gets an ID when deserialized.
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public Guid? ReserveForId { get; set; }
+        [DefaultValue(3)]
+        public int BufferSeconds { get; set; } = 3;
         public string Name { get; set; }
         [DefaultValue(true)]
         public bool Enabled { get; set; } = true;
@@ -44,6 +49,8 @@ namespace SkillVoiceTimer
                 throw new InvalidDataException("请重新录入有效的键盘快捷键。");
             if (Duration < 1 || Duration > 86400 || Lead < 0 || Lead >= Duration)
                 throw new InvalidDataException("持续时间应在 1 到 86400 秒之间，提前量应小于持续时间。");
+            if (BufferSeconds < 0 || BufferSeconds > 86400)
+                throw new InvalidDataException("操作余量应在 0 到 86400 秒之间。");
         }
     }
 

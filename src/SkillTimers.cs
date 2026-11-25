@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Forms;
@@ -6,16 +7,19 @@ namespace SkillVoiceTimer
 {
     internal sealed class SkillTimers
     {
+        private enum ReminderState { Pending, Announced, Reserved }
+
         private sealed class Cast
         {
             public Skill Skill;
             public long Due;
+            public long ReadyAt { get { return Due + Skill.Lead * 1000L; } }
             public long Order;
-            public bool Announced;
+            public ReminderState State;
         }
 
         private readonly Dictionary<Keys, Skill> bindings = new Dictionary<Keys, Skill>();
-        private readonly Dictionary<Keys, Cast> casts = new Dictionary<Keys, Cast>();
+        private readonly Dictionary<Guid, Cast> casts = new Dictionary<Guid, Cast>();
         private readonly HashSet<Keys> held = new HashSet<Keys>();
         private readonly HashSet<Keys> modifierKeysDown = new HashSet<Keys>();
         private readonly HashSet<Keys> boundPrimaryKeys = new HashSet<Keys>();
@@ -24,8 +28,7 @@ namespace SkillVoiceTimer
 
         public bool HasEnabledBindings { get { return bindings.Count > 0; } }
 
-        // The editor preserves unchanged objects, so editing one skill leaves the others running.
-        public void Configure(IEnumerable<Skill> skills)
+        public void Configure(IEnumerable<Skill> skills, Skill edited = null)
         {
             bindings.Clear();
             boundPrimaryKeys.Clear();
@@ -40,8 +43,9 @@ namespace SkillVoiceTimer
             foreach (var entry in casts.ToList())
             {
                 Skill current;
-                if (!bindings.TryGetValue(entry.Key, out current) || current != entry.Value.Skill)
+                if (!bindings.TryGetValue(entry.Value.Skill.Binding, out current) || current.Id != entry.Key || entry.Key == edited?.Id)
                     casts.Remove(entry.Key);
+                else entry.Value.Skill = current; // Deleting its partner only removes the link.
             }
         }
 
@@ -101,26 +105,47 @@ namespace SkillVoiceTimer
             Skill skill;
             if (!bindings.TryGetValue(binding, out skill)) return;
             Cast current;
-            if (casts.TryGetValue(binding, out current) && now < current.Due) return;
-            casts[binding] = new Cast { Skill = skill, Due = now + skill.DelaySeconds * 1000L, Order = ++sequence };
+            if (casts.TryGetValue(skill.Id, out current))
+            {
+                if (now < current.Due) return;
+                // Settle due reminders against the old cooldown before replacing it.
+                MarkReserved(now);
+            }
+            casts[skill.Id] = new Cast { Skill = skill, Due = now + skill.DelaySeconds * 1000L, Order = ++sequence };
         }
 
-        // Dequeue only when the speaker is idle. A recast replaces even an overdue, queued reminder.
-        public Skill TakeDue(long now)
+        private void MarkReserved(long now)
         {
-            var next = casts.Values.Where(c => !c.Announced && c.Due <= now)
+            foreach (var cast in casts.Values)
+            {
+                var skill = cast.Skill;
+                if (cast.State != ReminderState.Pending || cast.Due > now || !skill.ReserveForId.HasValue) continue;
+                Cast partner;
+                if (casts.TryGetValue(skill.ReserveForId.Value, out partner) &&
+                    partner.ReadyAt - now <= (skill.Duration + skill.BufferSeconds) * 1000L)
+                    cast.State = ReminderState.Reserved;
+            }
+        }
+
+        public Skill TakeDue(long now, bool speakerAvailable = true)
+        {
+            MarkReserved(now);
+            if (!speakerAvailable) return null;
+            var next = casts.Values.Where(c => c.State == ReminderState.Pending && c.Due <= now)
                 .OrderBy(c => c.Due).ThenBy(c => c.Order).FirstOrDefault();
             if (next == null) return null;
-            next.Announced = true;
+            next.State = ReminderState.Announced;
             return next.Skill;
         }
 
         public string Status(Keys binding, long now)
         {
-            if (!bindings.ContainsKey(binding)) return "未勾选";
+            Skill skill;
+            if (!bindings.TryGetValue(binding, out skill)) return "未勾选";
             Cast cast;
-            if (!casts.TryGetValue(binding, out cast)) return "等待按键";
-            if (cast.Announced) return "已提醒";
+            if (!casts.TryGetValue(skill.Id, out cast)) return "等待按键";
+            if (cast.State == ReminderState.Reserved) return "本轮已留用";
+            if (cast.State == ReminderState.Announced) return "已提醒";
             if (now >= cast.Due) return "等待播报";
             return ((cast.Due - now + 999) / 1000) + " 秒后提醒";
         }
